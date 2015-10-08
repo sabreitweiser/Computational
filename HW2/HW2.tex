@@ -1,0 +1,153 @@
+\documentclass{article}
+\usepackage[margin=1in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage{beramono}
+\usepackage{listings}
+\usepackage[usenames,dvipsnames]{xcolor}
+\usepackage{verbatim}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{hyperref}
+
+\title{Computational Physics Homework 2}
+\date{October 7, 2015}
+\author{Stanley "Alex" Breitweiser"}
+\begin{document}
+\maketitle
+\section{Question 1}
+\subsection{Runge Kutta Solution}
+We begin with a general Runge-Kutta function to approximate the solution to the differential equation
+$$\frac{du}{dt} = f(t,u).$$
+Given a starting point for the dependent variable, $t_0$, a number of steps, $N$, an ending point, $t_N$, and an initial condition, $u(t_0) = u_0$, the following algorithm is used to approximation $u(t_N)$:
+$$h = \frac{t_N - t_0}{N}$$
+$$t_{n+1} = t_n + h \qquad u(t_{n+1}) \approx u(t_n) + \frac{h}{6}(k_1 + 2k_2 + 2k_3 + k_4)$$
+$$k_1 = f(t_n, u(t_n)) \qquad k_2 = f(t_n + \frac{h}{2}, u(t_n)+\frac{h}{2}k_1) \qquad k_3 = f(t_n + \frac{h}{2}, u(t_n)+\frac{h}{2}k_2) \qquad k_4 = f(t_n + h, u(t_n)+hk_3)$$
+Simply repeating this from $n=0$ to $n=N$ and iteratively using past approximations yields an approximation for $u(t_N)$.
+
+Once this has been implemented, the second order differential equation may be decomposed into two first order differential equations, which can be solved with this implementation as a vectorized differential equation.
+$$v \triangleq \frac{du}{d\phi}$$
+$$\frac{dv}{d\phi} = \frac{GM}{h^2} + 3\frac{GM}{c^2}u^2 - u \qquad \frac{du}{d\phi} = v$$
+
+\subsection{Exact vs RK4 comparison}
+We use our Runge Kutta code to solve the nonrelativistic version of the orbital equation, namely
+$$\frac{dv}{d\phi} = \frac{GM}{h^2} - u \qquad \frac{du}{d\phi} = v,$$
+and compare this with the exact solution,
+$$u = \frac{1+e\,cos(\phi)}{a(1-e^2)},$$
+where $a$ is the semimajor axis of orbit and $e$ is the eccentricity. A table of the used constants can be found below. Note that $h$, the specific angular momentum, is calculated using the maximum speed of Mercury's orbit and its radius at perihelion. Since $h$ is constant, this is one of many ways of calculating it, but they should all give the same answer.
+
+\begin{figure}[H]{Constants}
+\begin{tabular}{l l l}
+Symbol & Meaning & Value \\
+$G$ & Gravitational Constant & $6.674 x 10^{11} \frac{m^3}{kg\,s^2}$\cite{sju}\\
+$M$ & Mass of the Sun & $1.989 x 10^{30} kg$ \cite{nasa}\\
+$c$ & Speed of light & $2.998 x 10^8 \frac{m}{s}$ \cite{sju}\\
+$e$ & Eccentricity of Mercury's Orbit & $0.2056$ \cite{nasa} \\
+$a$ & Semi-major axis of Mercury's Orbit & $57.91 x 10^9 m$ \cite{nasa} \\
+$h$ & Specific angular momentum of Mercury & $2.713 x 10^{15} \frac{m^2}{s}$ \cite{nasa}
+\end{tabular}
+\end{figure}
+
+Using these constants, we see that our Runge Kutta algorithm produces a closed orbit:
+
+\begin{figure}[H]
+	\includegraphics[width=6in,height=4in]{"rk4orbit"}
+\end{figure}
+
+We also compare the exact solution with the numerical one for a few different angular step sizes, and include the plots below. The exact solution is displayed with a line, while the numerical is displayed as individual points.
+
+\begin{figure}[H]
+	\includegraphics[width=6in,height=4in]{"rk4Vexact20"}
+\end{figure}
+\begin{figure}[H]
+	\includegraphics[width=6in,height=4in]{"rk4Vexact10"}
+\end{figure}
+\begin{figure}[H]
+	\includegraphics[width=6in,height=4in]{"rk4Vexact5"}
+\end{figure}
+
+\subsection{Precessional Shift}
+We know we're looking for a small effect, so we simply step our Runge-Kutta solver to $2\pi$, and fit a parabola, $y = ax^2 + bx +c$, to the last three points. To do this, labeling these points as $(x_i, y_i)$, we simply use a matrix coefficient inversion:
+$$(x_i^2,x_i,1) (a,b,c) = y_i$$
+$$(a,b,c) = (x_i^2,x_i,1)^{-1}y_i$$
+
+This gives us the following (the points are the numerical positions, the line is the calculated parabola).
+
+\begin{figure}[H]
+	\includegraphics[width=6in,height=4in]{"Relativistic Perihelion"}
+\end{figure}
+
+We then calculation the perihelion angle shift by finding the minimum of the parabola and subtracting $2\pi$,
+$$\Delta\phi = -\frac{b}{2a} - 2\pi = 5.076 x 10^{-7} \,rad \approx 43.92'' / century.$$
+Note that, to get the radians per orbit measurement into arcseconds per century, we multiplied by $3600$ arcseconds in a degree, $180/\pi$ degrees in a radian, $365$ days in a year, $100$ years in a century, and divided by $87$ days in Mercury's orbit.
+
+
+
+
+\section{Question 2}
+\subsection{Orbital Equation}
+We start with the equation for acceleration,
+$$a = \frac{F}{m}.$$
+Putting it in polar coordinates with our new central force and the centripetal force
+$$\frac{d^2r}{dt^2} = \frac{GM}{r^2}(\frac{r_0}{r})^\delta - r(\frac{d\theta}{dt})^2$$
+We substitute in the differential operator identity:
+$$\frac{d}{dt} = \frac{d\theta}{dt}\frac{d}{d\theta}=hu^2\frac{d}{d\theta} \qquad h := \frac{l}{m} = r^2\frac{d\theta}{dt} \qquad u := \frac{1}{r}.$$
+With some algebra (noting that $h$ is constant):
+$$\frac{d^2}{dt^2}(\frac{1}{u}) = GMu^{2+\delta}r_0^\delta - h^2u^3$$
+$$h^2u^2\frac{d^2u}{d\theta^2} = GMu^{2+\delta}r_0^\delta - h^2u^3$$
+$$\frac{d^2u}{d\theta^2} = \frac{GM}{h^2}(ur_0)^\delta - u$$
+\subsection{Precessional Shift}
+Since we're not sure how large the effect we are trying to measure is, we must be more careful when finding the perihelion angle. In particular, we step the angle to $3\pi/2$, so we know that aphelion has been passed, and then step the angle forward until $v$ changes sign (namely, becomes negative). Then, we do the same parabola fitting as in Question 1. This produces the fit below.
+
+\begin{figure}[H]
+	\includegraphics[width=6in,height=4in]{"Question 2 Perihelion"}
+\end{figure}
+
+We find a shift of
+$$\Delta\phi = -\frac{b}{2a} - 2\pi = 0.167 \,rad \approx 1.44 x 10^7 arcseconds/ century.$$
+
+
+
+
+\section{Question 3}
+\subsection{Runge Kutta}
+Given an equation of state, $\hat{\epsilon}(\hat{p})$, we can simply feed our functions into our previously coded Runge Kutta solver using a simultaneous vectorized differential equation (note that square brackets indicate an array):
+$$[\frac{d\hat{p}}{d\hat{r}},\frac{d\hat{m}}{d\hat{r}}](\hat{r},[\hat{p},\hat{m}])$$
+\subsection{Dimensionless Equations}
+After some algebra, and using $\epsilon =  \rho c^2$, we obtain dimensionless equations for $\frac{dp}{dr}$ (Newtonian and TOV, respectively):
+$$\frac{d\hat{p}}{d\hat{r}} = -(\frac{GM_0}{c^2r_0})\frac{\hat{\epsilon}\hat{m}}{\hat{r}^2}$$
+$$\frac{d\hat{p}}{d\hat{r}} = -(\frac{GM_0}{c^2r_0})(\frac{\hat{\epsilon}}{\hat{r}^2})(1+\frac{\hat{p}}{\hat{\epsilon}})(\hat{m}+(\frac{\epsilon_0r_0^3}{M_0c^2})(4\pi\hat{r}^3\hat{p}))(\frac{1}{1-(\frac{GM_0}{c^2r_0})(\frac{2\hat{m}}{\hat{r}})}).$$
+Similarly, for $\frac{dm}{dr}$:
+$$\frac{d\hat{m}}{d\hat{r}} = (\frac{r_0^3\epsilon_0}{M_0c^2})\,4\pi\hat{r}^2\hat{\epsilon}.$$
+Throughout these equations, we use our equation of state, $\hat{\epsilon}(\hat{p})$, to eliminate $\hat{\epsilon}$ as an independent variable.
+
+\subsection{Newtonian vs Relativistic}
+We can now solve these dimensionless equations with our Runge Kutta solver. Since $\hat{r} = 0$ produces infinite values, we actually start $\hat{r}$ at a very small value. This produces the following plots, with the Newtonian solutions plotted with a line and the TOV solutions plotted with points. Note that we stop the solver when the pressure becomes small ($\approx 0$).
+
+\begin{figure}[H]
+	\includegraphics[width=6in,height=4in]{"pvr"}
+\end{figure}
+\begin{figure}[H]
+	\includegraphics[width=6in,height=4in]{"mvr"}
+\end{figure}
+
+These make sense, given that the relativistic corrections are larger than $1$. Since the pressure is decreasing, this means it will decrease faster, and the neutron star will be able to `hold on' to less mass near the outside.
+
+\subsection{Maximum Mass}
+Changing $p_0$ from $0.01$ to $0.1$ ($0.5$ was not enough to clearly see the mass peak), we obtain the following parametric plot of mass as a function of the neutron star's radius (as detected by vanishing pressure).
+
+\begin{figure}[H]
+	\includegraphics[width=6in,height=4in]{"MvR2"}
+\end{figure}
+
+We clearly see a maximum mass; it is about $0.776$ solar masses, which is obtained when the radius is about $10.3$ kilometers.
+
+
+\begin{thebibliography}{9}
+\bibitem{nasa}
+	http://nssdc.gsfc.nasa.gov/planetary/factsheet/
+\bibitem{sju}
+	http://www.physics.csbsju.edu/cgi-bin/twk/examples/F2.html
+\end{thebibliography}
+\end{document}
